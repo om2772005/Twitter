@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { useTranslation } from "react-i18next";
 
 const ExploreContent = () => {
     const [users, setUsers] = useState([]);
@@ -7,6 +8,7 @@ const ExploreContent = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [processing, setProcessing] = useState(new Set());
+    const { t ,i18n} = useTranslation(); 
 
     useEffect(() => {
         const fetchUsers = async () => {
@@ -60,7 +62,7 @@ const ExploreContent = () => {
 
     return (
         <div className="p-8 bg-gray-100 min-h-screen">
-            <h1 className="text-3xl font-bold text-center text-gray-700 mb-8">Explore Users</h1>
+            <h1 className="text-3xl font-bold text-center text-gray-700 mb-8">{t("exploreUsers")}</h1>
 
             {loading && <p className="text-center text-gray-500">Loading users...</p>}
             {error && <p className="text-center text-red-500">{error}</p>}
@@ -77,8 +79,8 @@ const ExploreContent = () => {
                             <h2 className="text-lg font-semibold text-center truncate w-full">{user.username}</h2>
                             <p className="text-gray-500 text-sm text-center">{user.bio || "No bio available"}</p>
                             <div className="text-gray-600 mt-2">
-                                <p><strong>Followers:</strong> {user.followedBy?.length || 0}</p>
-                                <p><strong>Following:</strong> {user.following?.length || 0}</p>
+                                <p><strong>{t("followers")}</strong> {user.followedBy?.length || 0}</p>
+                                <p><strong>{t("following")}</strong> {user.following?.length || 0}</p>
                             </div>
 
                             <div className="mt-4 flex gap-3">
@@ -89,20 +91,20 @@ const ExploreContent = () => {
                                     onClick={() => handleFollowToggle(user._id)}
                                     disabled={processing.has(user._id)}
                                 >
-                                    {processing.has(user._id) ? "Processing..." : following.has(user._id) ? "Unfollow" : "Follow"}
+                                    {processing.has(user._id) ? t('Processing...' ): following.has(user._id) ? t('Unfollow') : t('follow')}
                                 </button>
                                 <button
                                     className="text-sm bg-gray-800 text-white px-3 py-1 rounded hover:bg-gray-900"
                                     onClick={() => window.location.href = `/${user._id}`}
                                 >
-                                    View Profile
+                                    {t("viewProfile")}
                                 </button>
                             </div>
                         </div>
                     ))}
                 </div>
             ) : (
-                !loading && <p className="text-center text-gray-500">No users found.</p>
+                !loading && <p className="text-center text-gray-500">{t("noUserFound")}</p>
             )}
         </div>
     );

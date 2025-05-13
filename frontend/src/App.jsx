@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Sign from './pages/Sign'
 import Home from './pages/Home';
 import Login from './pages/Login'
@@ -9,18 +9,30 @@ import ProtectedRoute from './ProtectedRoute';
 import Other_profile from './pages/Other_profile';
 import Subscription from './pages/Subscription';
 import Verify from './pages/Verify';
-import Not from './components/Not';
-
+import { Toaster } from 'react-hot-toast'
+import { useTranslation } from "react-i18next";
+import Notifications from './pages/Notfication';
+import { useEffect } from 'react';
 
 
 
 function App() {
+  const { i18n } = useTranslation();
+
+  useEffect(() => {
+    const savedLang = localStorage.getItem("Language");
+    if (savedLang) {
+      i18n.changeLanguage(savedLang);
+    }
+  }, [i18n]);
 
   return (
     <>
-    <Not />
+    <BrowserRouter>
+    <Notifications />
+    <Toaster />
     <div>
-       <Router>
+       
         <Routes>
         <Route path="/" element={<Verify/>} />
           <Route path="/sign" element={<Sign />} />
@@ -32,8 +44,9 @@ function App() {
           <Route path='/:id' element={< Other_profile/>}/>
           <Route path='/subscribe' element={< Subscription/>}/>
         </Routes>
-      </Router>
+      
     </div>
+    </BrowserRouter>
 
     </>
   )

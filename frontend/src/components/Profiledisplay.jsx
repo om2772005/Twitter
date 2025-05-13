@@ -4,6 +4,7 @@ import { IoIosFlag } from "react-icons/io";
 import { FaEarthAmericas } from "react-icons/fa6";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useTranslation } from "react-i18next";
 import moment from "moment";
 
 const Profiledisplay = () => {
@@ -14,6 +15,7 @@ const Profiledisplay = () => {
   const videoRef = useRef(null); // Reference to video element
   const lastTap = useRef(0); // For detecting double tap
   const swipeStartX = useRef(0); // For detecting swipe
+  const {t}  = useTranslation()
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -93,11 +95,11 @@ const Profiledisplay = () => {
   return (
     <div className="min-h-screen bg-white text-black">
       {/* Top Navigation Bar */}
-      <div className="bg-zinc-700 h-12 p-2 flex items-center gap-4 sticky top-0 z-50">
+      <div className="bg-zinc-700 h-12 p-2 flex items-center gap-4 sticky top-0 z-1">
         <FaArrowLeft className="text-xl text-white cursor-pointer" onClick={() => navigate(-1)} />
         <div className="flex flex-col">
           <h1 className="text-lg font-bold text-white">{user ? user.name : "Loading..."}</h1>
-          <p className="text-sm text-gray-400">{posts.length} posts</p>
+          <p className="text-sm text-gray-400">{posts.length} {t("posts")}</p>
         </div>
       </div>
 
@@ -114,7 +116,7 @@ const Profiledisplay = () => {
 
         <div className="flex justify-end">
           <button onClick={() => navigate("/edit")} className="mt-4 px-4 py-2 border border-gray-400 rounded-full hover:bg-gray-100">
-            Edit Profile
+            {t("editProfile")}
           </button>
         </div>
 
@@ -125,13 +127,15 @@ const Profiledisplay = () => {
           <h3 className="text-blue-700 flex items-center"><IoIosFlag className="mr-2" /> {user?.loc || ""}</h3>
           <h3 className="text-red-500 flex items-center"><FaEarthAmericas className="mr-2" /> {user ? user.web : ""}</h3>
           <p className="text-gray-600 flex items-center">
-            📅 Joined {user ? moment(user.createdAt).format("DD MMMM YYYY") : "Loading..."}
+            {t("joined")} {user ? moment(user.createdAt).format("DD MMMM YYYY") : "Loading..."}
           </p>
           <div className="flex space-x-4 mt-2">
+            
+            <span className="text-gray-600">{t("following")}</span>
             <span className="font-semibold">{user?.following?.length || 0}</span>
-            <span className="text-gray-600">Following</span>
+            
+            <span className="text-gray-600">{t("followers")}</span>
             <span className="font-semibold">{user?.follower?.length || 0}</span>
-            <span className="text-gray-600">Followers</span>
           </div>
         </div>
       </div>
@@ -144,7 +148,7 @@ const Profiledisplay = () => {
       {/* Posts Section */}
       <div className="p-4">
         {loading ? (
-          <p className="text-center text-gray-500">Loading posts...</p>
+          <p className="text-center text-gray-500">{t("loadingPosts")}</p>
         ) : posts.length > 0 ? (
           posts.map((post) => (
             <div key={post._id} className="border-b py-4">
@@ -175,7 +179,7 @@ const Profiledisplay = () => {
             </div>
           ))
         ) : (
-          <p className="text-center text-gray-500">No posts available</p>
+          <p className="text-center text-gray-500">{t("noPostsAvailable")}</p>
         )}
       </div>
     </div>

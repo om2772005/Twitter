@@ -7,25 +7,22 @@ function Notifications() {
   useEffect(() => {
     if (!socket) return;
 
+    // Ask for permission when component mounts
+    if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+      Notification.requestPermission();
+    }
+
     socket.on('newNotification', (data) => {
       console.log("New notification received:", data);
 
-      // Check if the browser supports Notifications API
-      if (Notification.permission === 'granted') {
-        // Create a new notification
-        new Notification('New Notification', {
-          body: data.message, // The message you received from the server
+      const message = `${data.username} tweeted: ${data.tweet}`;
 
+      if (Notification.permission === 'granted') {
+        new Notification('New Tweet Alert!', {
+          body: message,
         });
-      } else if (Notification.permission !== 'denied') {
-        // Request permission to show notifications
-        Notification.requestPermission().then(permission => {
-          if (permission === 'granted') {
-            new Notification('New Notification', {
-              body: data.message,
-            });
-          }
-        });
+      } else {
+  toast(message); // fallback
       }
     });
 
@@ -34,9 +31,7 @@ function Notifications() {
     };
   }, [socket]);
 
-  return (
-    <></>
-  );
+  return null;
 }
 
 export default Notifications;

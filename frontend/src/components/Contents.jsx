@@ -11,9 +11,9 @@ const Content = () => {
                     <li>- Breeze</li>
                 </ul>
                 <div className="mt-4 flex space-x-4">
-                    <span>❤️ 2.9K</span>
-                    <span>💬 Reply</span>
-                    <span>🔄 Share</span>
+                    <span> 2.9K</span>
+                    <span> Reply</span>
+                    <span> Share</span>
                 </div>
             </div>
         </div>

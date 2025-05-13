@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { FaImage, FaChartBar, FaSmile, FaCalendarAlt, FaGlobeAmericas, FaTimes, FaMicrophone, FaStop, FaVideo } from "react-icons/fa";
+import { useTranslation } from "react-i18next";
 
 const MAX_CHAR = 280;
 
@@ -17,6 +18,7 @@ const PostModal = ({ isOpen, onClose }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const {t} = useTranslation();
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -62,7 +64,11 @@ const PostModal = ({ isOpen, onClose }) => {
 
   const handleStartRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+ const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    const options = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? { mimeType: "audio/webm;codecs=opus" }
+      : {};      
       const recorder = new MediaRecorder(stream);
       const chunks = [];
 
@@ -159,7 +165,7 @@ const PostModal = ({ isOpen, onClose }) => {
         <button className="absolute top-2 left-2 text-gray-500 hover:text-black" onClick={onClose}>
           <FaTimes size={18} />
         </button>
-        <span className="absolute top-2 right-4 text-blue-700 text-sm cursor-pointer">Drafts</span>
+        <span className="absolute top-2 right-4 text-blue-700 text-sm cursor-pointer">{t("drafts")}</span>
         <div className="flex space-x-3 mt-4">
           <img src={user ? user.profilePic : ''} alt="Profile" className="w-10 h-10 rounded-full" />
           <div className="w-full">
@@ -173,10 +179,10 @@ const PostModal = ({ isOpen, onClose }) => {
                 e.target.style.height = "auto";
                 e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
               }}
-              placeholder="What is happening?!"
+              placeholder={t("whatsHappening")}
             ></textarea>
             <button className="flex items-center space-x-2 text-blue-700 text-sm mt-1 hover:underline">
-              <FaGlobeAmericas /> <span>Everyone can reply</span>
+              <FaGlobeAmericas /> <span>{t("everyoneCanReply")}</span>
             </button>
           </div>
         </div>
@@ -200,7 +206,7 @@ const PostModal = ({ isOpen, onClose }) => {
             className="mt-2 text-blue-600 text-sm hover:underline"
             onClick={handleOtpRequest}
           >
-            Request OTP for Audio Upload
+            {t("requestOtpAudio")}
           </button>
         )}
         {audioBlob && otpSent && (
@@ -232,7 +238,7 @@ const PostModal = ({ isOpen, onClose }) => {
             )}
           </div>
           <button className="px-4 py-2 rounded-full bg-blue-500 text-white font-bold" onClick={handlePost}>
-            {isPosting ? "Posting..." : "Post"}
+            {isPosting ? t("posting") : t("post")}
           </button>
         </div>
       </div>

@@ -2,97 +2,122 @@ import axios from "axios";
 import React, { useState, useEffect } from "react";
 import { FaArrowLeft, FaCamera } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 const EditProfile = () => {
-  const navigate = useNavigate(); 
-  
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
   const [loc, setLoc] = useState("");
   const [web, setWeb] = useState("");
   const [profilePic, setProfilePic] = useState("");
+  const [profilePicFile, setProfilePicFile] = useState(null);
+
+  const [user, setUser] = useState(null);
+  const [posts, setPosts] = useState([]);
+
+  // Fetch user data
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const response = await axios.get("http://localhost:5000/home", {
+          withCredentials: true,
+        });
+        setUser(response.data.user);
+        setName(response.data.user.name || "");
+        setBio(response.data.user.bio || "");
+        setLoc(response.data.user.loc || "");
+        setWeb(response.data.user.web || "");
+        setProfilePic(response.data.user.profilePic || "");
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+    if (window.location.pathname === "/edit") fetchUserData();
+  }, []);
+
+  // Fetch posts
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        if (!user?._id) return;
+        const response = await axios.get(`http://localhost:5000/postdata/${user._id}`, {
+          withCredentials: true,
+        });
+
+        if (!Array.isArray(response.data)) throw new Error("Invalid posts response");
+        setPosts(response.data);
+      } catch (error) {
+        console.error("Error fetching posts:", error);
+        setPosts([]);
+      }
+    };
+    fetchPosts();
+  }, [user]);
+
+  const handleImageChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setProfilePic(URL.createObjectURL(file)); // for preview
+      setProfilePicFile(file); // for uploading
+    }
+  };
 
   const updateUser = async () => {
-    const updates = {};
+    const formData = new FormData();
 
-    if (name.trim() !== "") updates.name = name;
-    if (bio.trim() !== "") updates.bio = bio;
-    if (loc.trim() !== "") updates.loc = loc;
-    if (web.trim() !== "") updates.web = web;
-    if (profilePic.trim() !== "") updates.profilePic = profilePic;
+    if (name.trim() !== "") formData.append("name", name);
+    if (bio.trim() !== "") formData.append("bio", bio);
+    if (loc.trim() !== "") formData.append("loc", loc);
+    if (web.trim() !== "") formData.append("web", web);
+    if (profilePicFile) formData.append("image", profilePicFile);
 
-    if (Object.keys(updates).length === 0) {
+    if ([...formData.entries()].length === 0) {
       console.log("No valid fields to update");
       return;
     }
 
     try {
-      const response = await axios.post(
-        "http://localhost:5000/edit",
-        updates,
-        { withCredentials: true } // ✅ Important for sending cookies
-      );
+      const response = await axios.post("http://localhost:5000/edit", formData, {
+        withCredentials: true,
+        headers: { "Content-Type": "multipart/form-data" },
+      });
       console.log("User updated:", response.data);
-      navigate("/profile"); // ✅ Correctly placed here
+      navigate("/profile");
     } catch (error) {
       console.error("Error updating user:", error);
     }
   };
 
-  const [user, setUser] = useState(null);
-
-  const handleImageChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setProfilePic(imageUrl);
-    }
-  };
-
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const response = await axios.get("http://localhost:5000/home", {
-          withCredentials: true, 
-        });
-        setUser(response.data.user);
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-      }
-    };
-    if (window.location.pathname === "/edit") {
-      fetchUserData();
-    }
-  }, []);
-
   return (
     <div className="min-h-screen bg-gray-100 text-black flex flex-col items-center">
       {/* Header */}
-      <div className="bg-zinc-700 h-14 w-full p-3 flex items-center gap-4 sticky top-0 z-50 shadow-md">
-        <FaArrowLeft 
-          className="text-xl text-white cursor-pointer" 
+      <div className="bg-zinc-700 h-14 w-full p-3 flex items-center gap-4 sticky top-0 z-1 shadow-md">
+        <FaArrowLeft
+          className="text-xl text-white cursor-pointer"
           onClick={() => navigate(-1)}
         />
         <div>
           <h1 className="text-lg font-bold text-white">{user ? user.name : "Loading..."}</h1>
-          <p className="text-sm text-gray-400">0 posts</p>
+          <p className="text-sm text-gray-400">{posts.length} {t("posts")}</p>
         </div>
       </div>
-      
+
       {/* Profile Edit Section */}
       <div className="bg-white shadow-lg rounded-lg p-6 mt-6 w-11/12 max-w-md text-center">
-        <h1 className="text-2xl font-semibold text-gray-700 mb-4">Edit Your Profile</h1>
-        
-        {/* Profile Picture Upload */}
-        <div className="relative w-32 h-32 mx-auto group ">
-          <img 
-            src={user ? user.profilePic : "Loading..."} 
-            alt="Profile" 
-            className="w-32 h-32 rounded-full border-4 border-gray-300 hover:opacity-50"
-          />
+        <h1 className="text-2xl font-semibold text-gray-700 mb-4">{t("editYourProfile")}</h1>
 
-          <div className="absolute bottom-2 right-2 bg-gray-800 text-white p-2 rounded-full cursor-pointer transition-opacity opacity-0 group-hover:opacity-100 flex items-center justify-center">
-            <label className="cursor-pointer flex items-center">
+        {/* Profile Picture Upload */}
+        <div className="relative w-32 h-32 mx-auto group">
+          <img
+            src={profilePic || "https://via.placeholder.com/150"}
+            alt="Profile"
+            className="w-32 h-32 rounded-full border-4 border-gray-300 object-cover"
+          />
+          <div className="absolute bottom-2 right-2 bg-gray-800 text-white p-2 rounded-full cursor-pointer transition-opacity opacity-0 group-hover:opacity-100">
+            <label className="cursor-pointer">
               <FaCamera className="text-lg" />
               <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
             </label>
@@ -101,11 +126,10 @@ const EditProfile = () => {
 
         {/* Name Input */}
         <div className="mt-6 text-left">
-          <label className="block text-gray-600 font-medium mb-1">Name</label>
-          <input 
-            type="text" 
-            className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder={user ? user.name : ''}
+          <label className="block text-gray-600 font-medium mb-1">{t("name")}</label>
+          <input
+            type="text"
+            className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -113,49 +137,42 @@ const EditProfile = () => {
 
         {/* Bio Input */}
         <div className="mt-4 text-left">
-          <label className="block text-gray-600 font-medium mb-1">Bio</label>
-          <textarea 
-            className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" 
-            placeholder={user ? user.bio : ''}
+          <label className="block text-gray-600 font-medium mb-1">{t("bio")}</label>
+          <textarea
+            className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
             value={bio}
             onChange={(e) => setBio(e.target.value)}
           ></textarea>
         </div>
 
         {/* Location Input */}
-        <div className="mt-6 text-left">
-          <label className="block text-gray-600 font-medium mb-1">Location</label>
-          <input 
-            type="text" 
-            className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder={user ? user.loc : ''}
+        <div className="mt-4 text-left">
+          <label className="block text-gray-600 font-medium mb-1">{t("location")}</label>
+          <input
+            type="text"
+            className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
             value={loc}
             onChange={(e) => setLoc(e.target.value)}
           />
         </div>
 
         {/* Website Input */}
-        <div className="mt-6 text-left">
-          <label className="block text-gray-600 font-medium mb-1">Website</label>
-          <input 
-            type="text" 
-            className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder={user ? user.web : ''}
+        <div className="mt-4 text-left">
+          <label className="block text-gray-600 font-medium mb-1">{t("website")}</label>
+          <input
+            type="text"
+            className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
             value={web}
             onChange={(e) => setWeb(e.target.value)}
           />
         </div>
 
         {/* Submit Button */}
-        <button 
-          type="button" 
-          className="mt-6 bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 transition" 
-          onClick={(e) => {
-            e.preventDefault();
-            updateUser();
-          }}
+        <button
+          className="mt-6 bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 transition"
+          onClick={updateUser}
         >
-          Save Changes
+          {t("saveChanges")}
         </button>
       </div>
     </div>

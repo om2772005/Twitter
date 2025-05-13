@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { useTranslation } from "react-i18next";
 
 const plans = [
   { id: "free", name: "Free Plan", price: 0, tweets: 1, color: "#ccc", badge: "FREE" },
@@ -12,6 +13,7 @@ const SubscriptionPage = ({ setBlur }) => {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
+  const {t} = useTranslation()
 
   // Fetch email from the token in localStorage
   useEffect(() => {
@@ -119,7 +121,7 @@ const SubscriptionPage = ({ setBlur }) => {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold text-center mb-6"> Choose Your Tweet Plan</h1>
+      <h1 className="text-2xl font-bold text-center mb-6"> {t("chooseTweetPlan")}</h1>
 
       <div className="flex flex-wrap justify-center gap-6">
         {plans.map((plan) => (
@@ -136,8 +138,8 @@ const SubscriptionPage = ({ setBlur }) => {
               {plan.badge}
             </div>
             <h2 className="text-xl font-semibold mb-2">{plan.name}</h2>
-            <p className="text-gray-700 mb-2">₹{plan.price} / month</p>
-            <p className="text-gray-500">Tweets Allowed: <b>{plan.tweets}</b></p>
+            <p className="text-gray-700 mb-2">₹{plan.price} {t("perMonth")}</p>
+            <p className="text-gray-500">{t("tweetsAllowed")} <b>{plan.tweets}</b></p>
           </div>
         ))}
       </div>
@@ -147,7 +149,7 @@ const SubscriptionPage = ({ setBlur }) => {
           onClick={startPayment}
           className="bg-green-500 hover:bg-zinc-600 text-white py-2 px-8 rounded-full text-lg hover:text-xl"
         >
-          Subscribe Now
+          {t("subscribeNow")}
         </button>
       </div>
 

@@ -13,16 +13,25 @@ const moment = require('moment-timezone');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const fileType = require('file-type');
-const getAudioDurationInSeconds = require('get-audio-duration').getAudioDurationInSeconds;
+
 const Post = require('./modules/Post')
 const app = express();
-const SECRET =  process.env.JWT_SECRET;
+const SECRET = process.env.JWT_SECRET;
 const http = require("http");
 const { Server } = require("socket.io");
+const admin = require('firebase-admin');
+
+// Initialize Firebase Admin with your service account key
+const serviceAccount = require('../key.json');
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
 
 
 app.use(cors({
-  origin:  process.env.FRONTEND_URL,
+  origin: process.env.FRONTEND_URL,
   credentials: true
 }));
 app.use(express.urlencoded({ extended: true }));
@@ -30,7 +39,7 @@ app.use(express.json());
 app.use(cookieParser());
 const { Readable } = require('stream');
 
-const server = http.createServer(app); 
+const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: process.env.FRONTEND_URL,
@@ -40,10 +49,14 @@ const io = new Server(server, {
 
 // Socket.IO connection
 io.on("connection", (socket) => {
-  console.log("A user connected: " + socket.id);
+  setTimeout(() => {
+    socket.emit('newNotification', {
+      tweet: "Welcome to Twitter!",
+      username: "Admin"
+    });
+  }, 5000);
 
   socket.on("disconnect", () => {
-    console.log("User disconnected: " + socket.id);
   });
 });
 // Configure Cloudinary
@@ -89,7 +102,66 @@ app.post('/sign', async (req, res) => {
     return res.status(500).json({ error: "Internal Server Error" });
   }
 });
+// Backend (Express.js)
+app.post('/check-user', async (req, res) => {
+  
+  const { email } = req.body;
 
+  try {
+    // Check if the email exists in the database
+    const users = await user.findOne({ email });
+
+    if (users) {
+       const token = jwt.sign({ id: users._id, email: users.email }, SECRET);
+
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "Lax",
+      path: '/'
+    });
+      res.json({ exists: true, token});
+
+      
+    } else {
+      // If user does not exist
+      res.json({ exists: false });
+    }
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+app.post('/sign-otp',async (req,res)=>{
+  const { email,reason } = req.body;
+  if (!email) return res.status(400).json({ message: "Email is required." });
+
+  const otp = generateOTP();
+  otpStore[email] = { otp, expiresAt: Date.now() + 5 * 60 * 1000 };
+
+  try {
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: "your_email@gmail.com",
+      to: email,
+      subject: "OTP Verification",
+      text: `Your OTP for ${reason || "verification"} is: ${otp}`,
+    });
+
+    res.json({ success: true, message: "OTP sent to email." });
+  } catch (err) {
+    console.error("Email error:", err);
+    res.status(500).json({ success: false, message: "Failed to send OTP." });
+  }
+
+})
 app.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -125,6 +197,49 @@ app.post('/login', async (req, res) => {
     return res.status(500).json({ error: "Internal Server Error" });
   }
 });
+// POST /google-login
+app.post('/google-login', async (req, res) => {
+    const { token, email, name } = req.body;
+
+    try {
+        const decoded = await admin.auth().verifyIdToken(token);
+        const users = await user.findOne({ email });
+
+        if (users) {
+            const jwtToken = jwt.sign({ id: users._id ,email: users.email},SECRET);
+            return res.json({ token: jwtToken, newUser: false });
+        } else {
+            return res.json({ newUser: true, email, name });
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(401).json({ message: 'Invalid Google token' });
+    }
+});
+
+// Google Register
+app.post('/google-register', async (req, res) => {
+    const { email, fullName, username, password } = req.body;
+
+    try {
+        const existing = await user.findOne({ email });
+        if (existing) return res.status(400).json({ message: 'User already exists' });
+
+        const hashed = await bcrypt.hash(password, 10);
+        const users = await user.create({
+            email,
+            fullName,
+            username,
+            password: hashed,
+            fromGoogle: true
+        });
+
+        const token = jwt.sign({ id: users._id,email:users.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        res.json({ token });
+    } catch (err) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
 
 const requireAuth = (req, res, next) => {
   const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
@@ -146,7 +261,7 @@ const requireAuth = (req, res, next) => {
 
 
 
-app.get("/home", requireAuth, async (req, res) => {
+app.get("/home",requireAuth, async (req, res) => {
   try {
 
     const dataUser = await user.findOne({ _id: new ObjectId(req.user.id) }).select("-password").lean();
@@ -161,39 +276,60 @@ app.get("/home", requireAuth, async (req, res) => {
     return res.status(500).json({ error: "Internal Server Error" });
   }
 });
-app.post("/edit", async function (req, res) {
+app.post("/edit", upload.single("image"), async function (req, res) {
   try {
-    const token = req.cookies.token
-    const decoded = jwt.verify(token, SECRET)
+    const token = req.cookies.token;
+    if (!token) return res.status(401).json({ error: "Token missing" });
 
+    const decoded = jwt.verify(token, SECRET);
     const userid = decoded.id;
-    let updates = req.body;
 
-    // **Filter out empty or undefined fields**
+    let updates = req.body;
+    const uploadToCloudinary = async (buffer, folder) => {
+      return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result.secure_url);
+          }
+        );
+        stream.end(buffer);
+      });
+    };
+
+    if (req.file && req.file.buffer) {
+      const profileimageUrl = await uploadToCloudinary(req.file.buffer, "posts");
+      updates.profilePic = profileimageUrl;
+    }
+
+    // Remove empty or undefined fields
     Object.keys(updates).forEach((key) => {
       if (updates[key] === "" || updates[key] === undefined) {
         delete updates[key];
       }
     });
 
-    // If no valid fields to update, return an error
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ message: "No valid fields to update" });
     }
 
-    // **Update user in the database**
     await user.findOneAndUpdate(
-      { _id: userid }, // Query user by email
-      { $set: updates }, // Update only provided fields
-      { new: true } // Return the updated user
+      { _id: userid },
+      { $set: updates },
+      { new: true }
     );
 
     return res.status(201).json({ redirectTo: "http://localhost:5173/profile" });
-
   } catch (error) {
-    res.status(500).json({ error: "Error updating user", details: error });
+    console.error("🔥 Error updating user:", error); // 👈 Error log
+    res.status(500).json({
+      error: "Error updating user",
+      details: error.message,
+    });
   }
-})
+});
+
 app.post("/logout", (req, res) => {
   res.clearCookie('token', {
     httpOnly: true,
@@ -383,12 +519,6 @@ app.post('/post', requireAuth, upload.fields([{ name: 'image' }, { name: 'audio'
         return res.status(413).json({ error: "Audio file exceeds 100MB limit" });
       }
 
-      // ✅ 4. Duration check (max 5 mins)
-      const duration = await getAudioDurationInSeconds(audioFile.buffer);
-      if (duration > 300) {
-        return res.status(400).json({ error: "Audio duration exceeds 5 minutes limit" });
-      }
-
 
 
       audioUrl = await uploadToCloudinary(audioFile.buffer, 'audio');
@@ -496,7 +626,61 @@ app.get('/postsindex', async (req, res) => {
       } : null, // safer if somehow no user populated
     }));
 
-    console.log(formattedPosts);
+
+
+    res.status(200).json({ posts: formattedPosts });
+
+  } catch (error) {
+    console.error('Error fetching posts:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+
+
+
+
+
+
+
+app.get('/postdata/:id', async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
+    const posts = await Post.find({ userid: userId });
+
+    res.json(posts);
+  } catch (error) {
+    console.error("Error fetching posts:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+app.get('/postsindex', async (req, res) => {
+  try {
+    const posts = await Post.find()
+      .populate('userid', 'username profilePic')  // populate from 'user' model
+      .sort({ createdAt: -1 });
+
+    const formattedPosts = posts.map(post => ({
+      _id: post._id,
+      tweet: post.tweet,
+      image: post.image,
+      audio: post.audio,
+      video: post.video,
+      createdAt: post.createdAt,
+      user: post.userid ? {
+        _id: post.userid._id,
+        username: post.userid.username,
+        profilePic: post.userid.profilePic,
+      } : null, // safer if somehow no user populated
+    }));
+
 
     res.status(200).json({ posts: formattedPosts });
 
@@ -531,7 +715,7 @@ app.post('/request-audio-otp', requireAuth, async (req, res) => {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: process.env.EMAIL_USER, 
+        user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
     });
@@ -584,9 +768,9 @@ const razorpay = new Razorpay({
 
 const plans = {
   free: { amount: 0, currency: "INR" },
-  bronze: { amount: 10000, currency: "INR" }, 
-  silver: { amount: 30000, currency: "INR" }, 
-  gold: { amount: 100000, currency: "INR" },  
+  bronze: { amount: 10000, currency: "INR" },
+  silver: { amount: 30000, currency: "INR" },
+  gold: { amount: 100000, currency: "INR" },
 };
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -714,7 +898,147 @@ app.post("/payment-success", async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
+const otpStore = {}; // { email_or_mobile: { otp, expiresAt } }
 
+function generateOTP() {
+  return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+}
+
+function isOTPValid(stored, input) {
+  return stored?.otp === input && stored?.expiresAt > Date.now();
+}
+
+app.post("/send-email-otp", async (req, res) => {
+  const { reason } = req.body;
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ message: "Authorization header missing" });
+  }
+
+  const token = authHeader.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({ message: "JWT token not provided" });
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (err) {
+    return res.status(403).json({ message: "Invalid token" });
+  }
+
+  const { email } = decoded;
+  if (!email) return res.status(400).json({ message: "Email is required." });
+
+  const otp = generateOTP();
+  otpStore[email] = { otp, expiresAt: Date.now() + 5 * 60 * 1000 };
+
+  try {
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: "your_email@gmail.com",
+      to: email,
+      subject: "OTP Verification",
+      text: `Your OTP for ${reason || "verification"} is: ${otp}`,
+    });
+
+    res.json({ success: true, message: "OTP sent to email." });
+  } catch (err) {
+    console.error("Email error:", err);
+    res.status(500).json({ success: false, message: "Failed to send OTP." });
+  }
+});
+
+// ✅ Verify Email OTP
+app.post("/verify-email-otp", (req, res) => {
+  const { email, otp } = req.body;
+  const record = otpStore[email];
+
+  if (isOTPValid(record, otp)) {
+    delete otpStore[email];
+    return res.json({ success: true, message: "Email verified." });
+  }
+  res.status(400).json({ success: false, message: "Invalid or expired OTP." });
+});
+const axios = require('axios');
+
+app.post("/send-sms-otp", async (req, res) => {
+  const { phoneNumber } = req.body;
+
+  // ✅ Validate phone number
+  if (!phoneNumber || phoneNumber.length < 10) {
+    return res.status(400).json({ message: "Invalid phone number." });
+  }
+
+  try {
+    const options = {
+      method: 'POST',
+      url: 'https://control.msg91.com/api/v5/otp',
+      params: {
+        otp_expiry: '5',
+        mobile: phoneNumber,
+        authkey: '451272A6qisxpvu6822c18aP1',        // ⚠️ Replace with your MSG91 Auth Key
+        realTimeResponse: '1'
+      },
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    };
+
+    const { data } = await axios.request(options);
+    console.log("MSG91 Response:", data);
+
+    if (data.type === 'success') {
+      return res.status(200).json({
+        message: 'OTP sent successfully',
+        request_id: data.request_id, // Save this to verify OTP
+      });
+    } else {
+      res.status(500).json({ message: "Failed to send OTP", data });
+    }
+
+  } catch (error) {
+    console.error("OTP error:", error.response?.data || error.message);
+    res.status(500).json({ message: "Server error", error: error.response?.data || error.message });
+  }
+});
+
+// Verify OTP (this is for demonstration, you can implement a full flow)
+app.post("/verify-sms-otp", async (req, res) => {
+  const { otp, requestId } = req.body;
+
+  if (!otp || !requestId) {
+    return res.status(400).json({ message: "Missing OTP or requestId" });
+  }
+
+  try {
+    const response = await axios.get('https://control.msg91.com/api/v5/otp/verify', {
+      params: {
+        authkey: 'Y451272A6qisxpvu6822c18aP1', // replace with your actual key
+        otp: otp,
+        request_id: requestId,
+      }
+    });
+
+    if (response.data.type === "success") {
+      return res.status(200).json({ message: "OTP verified successfully" });
+    } else {
+      return res.status(400).json({ message: "OTP verification failed", data: response.data });
+    }
+
+  } catch (error) {
+    console.error("Verification Error:", error.response?.data || error.message);
+    return res.status(500).json({ message: "Server error during OTP verification" });
+  }
+});
 
 
 server.listen(5000, () => console.log('Server running on port 5000'));

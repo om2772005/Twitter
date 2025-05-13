@@ -4,34 +4,38 @@ import {
   FaBell,
   FaEnvelope,
   FaBookmark,
-  FaList,
   FaUser,
   FaEllipsisH,
   FaFeather,
-  FaDollarSign,  // Importing Dollar Sign Icon
-  FaCrown       // Importing Crown Icon
+  FaCrown,
 } from "react-icons/fa";
-import twitter from '../assets/images/twitter.png';
+import twitter from "../assets/images/twitter.png";
 import React, { useState, useEffect } from "react";
 import PostModal from "./PostModal";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
+import OTPModal from "./OTPModal"; // Import OTP Modal
 
 const Sidebar = ({ setBlur }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isTweetOpen, setIsTweetOpen] = useState(false);
   const [user, setUser] = useState(null);
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
+  const [pendingLang, setPendingLang] = useState(null);
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
 
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:5000/logout', {
-        method: 'POST',
-        credentials: 'include'
+      await fetch("http://localhost:5000/logout", {
+        method: "POST",
+        credentials: "include",
       });
-      navigate('/login');
+      navigate("/login");
     } catch (error) {
-      console.error('Error during logout:', error);
+      console.error("Error during logout:", error);
     }
   };
 
@@ -47,12 +51,9 @@ const Sidebar = ({ setBlur }) => {
       }
     };
 
+    const path = window.location.pathname;
     if (
-      window.location.pathname === "/home" ||
-      window.location.pathname === "/profile" ||
-      window.location.pathname === "/edit" ||
-      window.location.pathname === "/explore" ||
-      window.location.pathname === "/subscribe"
+      ["/home", "/profile", "/edit", "/explore", "/subscribe"].includes(path)
     ) {
       fetchUserData();
     }
@@ -60,44 +61,52 @@ const Sidebar = ({ setBlur }) => {
 
   const handleLanguageChange = async (e) => {
     const lang = e.target.value;
-    const otpType = lang === "fr" ? "email" : "mobile";
+    const token = localStorage.getItem("token");
 
-    const confirmSwitch = window.confirm(`Switching to ${lang.toUpperCase()} requires a ${otpType} OTP. Proceed?`);
-    if (!confirmSwitch) return;
+    // If selected language is English, change directly
+    if (lang === "en") {
+      i18n.changeLanguage(lang);
+      return;
+    }
 
     try {
-      const sendRes = await fetch("http://localhost:5000/api/verify-language", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ language: lang }),
+      const email = user?.email;
+      if (!email) return alert("Email not found!");
+
+      // Send OTP to email
+      await axios.post(
+        "http://localhost:5000/send-email-otp",
+        { reason: "language-change" },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Open OTP modal
+      setPendingLang(lang);
+      setOtpModalOpen(true);
+    } catch (err) {
+      console.error("OTP send error:", err);
+      alert("Failed to send OTP.");
+    }
+  };
+
+  const handleOTPVerify = async (enteredOtp) => {
+    try {
+      const res = await axios.post("http://localhost:5000/verify-email-otp", {
+        email: user?.email,
+        otp: enteredOtp,
       });
 
-      const sendData = await sendRes.json();
-
-      if (sendData.success) {
-        const otp = prompt(`Enter OTP sent to your ${otpType}:`);
-        const verifyRes = await fetch("http://localhost:5000/api/verify-otp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ otp }),
-        });
-
-        const verifyData = await verifyRes.json();
-
-        if (verifyData.success) {
-          alert(`Language switched to ${lang.toUpperCase()}`);
-          window.location.reload();
-        } else {
-          alert("Invalid OTP. Try again.");
-        }
+      if (res.data.success) {
+        i18n.changeLanguage(pendingLang);
+        alert("Language changed successfully!");
       } else {
-        alert("Failed to send OTP.");
+        alert("Invalid OTP.");
       }
-    } catch (err) {
-      console.error("Language switch error:", err);
-      alert("Something went wrong.");
+    } catch (error) {
+      alert("Verification failed.");
+    } finally {
+      setOtpModalOpen(false);
+      setPendingLang(null);
     }
   };
 
@@ -109,54 +118,73 @@ const Sidebar = ({ setBlur }) => {
           <span>Twiller</span>
         </div>
         <ul className="p-5 space-y-2">
-          <a href="home"><li className="flex items-center space-x-2 p-2 hover:bg-gray-200 rounded cursor-pointer"><FaHome /> <span>Home</span></li></a>
-          <a href="explore"><li className="flex items-center space-x-2 p-2 hover:bg-gray-200 rounded cursor-pointer"><FaSearch /> <span>Explore</span></li></a>
-          <li className="flex items-center space-x-2 p-2 hover:bg-gray-200 rounded cursor-pointer"><FaBell /> <span>Notifications</span></li>
-          <li className="flex items-center space-x-2 p-2 hover:bg-gray-200 rounded cursor-pointer"><FaEnvelope /> <span>Messages</span></li>
-          <li className="flex items-center space-x-2 p-2 hover:bg-gray-200 rounded cursor-pointer"><FaBookmark /> <span>Bookmarks</span></li>
-          <a href="/profile"><li className="flex items-center space-x-2 p-2 hover:bg-gray-200 rounded cursor-pointer"><FaUser /> <span>Profile</span></li></a>
+          <Link to='/home'>
+            <li className="flex items-center space-x-2 p-2 hover:bg-gray-200 rounded cursor-pointer">
+              <FaHome /> <span>{t("home")}</span>
+            </li>
+          </Link>
+          <Link to="/explore">
+            <li className="flex items-center space-x-2 p-2 hover:bg-gray-200 rounded cursor-pointer">
+              <FaSearch /> <span>{t("explore")}</span>
+            </li>
+          </Link>
+          <li className="flex items-center space-x-2 p-2 hover:bg-gray-200 rounded cursor-pointer">
+            <FaBell /> <span>{t("notifications")}</span>
+          </li>
+          <li className="flex items-center space-x-2 p-2 hover:bg-gray-200 rounded cursor-pointer">
+            <FaEnvelope /> <span>{t("messages")}</span>
+          </li>
+          <li className="flex items-center space-x-2 p-2 hover:bg-gray-200 rounded cursor-pointer">
+            <FaBookmark /> <span>{t("bookmarks")}</span>
+          </li>
+          <Link to="/profile">
+            <li className="flex items-center space-x-2 p-2 hover:bg-gray-200 rounded cursor-pointer">
+              <FaUser /> <span>{t("profile")}</span>
+            </li>
+          </Link>
         </ul>
 
-        {/* Tweet Button (Red) */}
+        {/* Tweet Button */}
         <div className="mt-auto">
           <button
             onClick={() => setBlur(true)}
             className="w-full bg-blue-500 text-white py-3 rounded-full text-lg font-semibold shadow-xl hover:scale-105 transform transition-all duration-300 ease-in-out hover:bg-red-600"
           >
             <FaFeather className="inline-block mr-2" />
-            Tweet
+            {t("tweet")}
           </button>
         </div>
 
-        {/* Subscribe Button with Dollar or Crown Icon */}
+        {/* Subscribe Button */}
         <div className="mt-3">
-        <button
-      onClick={() => navigate('/subscribe')}
-      className="w-full bg-yellow-300 text-black py-3 rounded-full text-lg font-semibold shadow-xl transform transition-all duration-300 ease-in-out hover:bg-yellow-500 hover:text-white hover:scale-110 animate-pulse"
-    >
-      <FaCrown className="inline-block ml-2" /> {/* Crown Icon */}
-      Subscribe
-    </button>
+          <button
+            onClick={() => navigate("/subscribe")}
+            className="w-full bg-yellow-300 text-black py-3 rounded-full text-lg font-semibold shadow-xl transform transition-all duration-300 ease-in-out hover:bg-yellow-500 hover:text-white hover:scale-110 animate-pulse"
+          >
+            <FaCrown className="inline-block ml-2" /> {t("subscribe")}
+          </button>
         </div>
 
         {/* Language Selector */}
         <div className="mt-6">
           <label htmlFor="language" className="text-sm font-semibold text-gray-700 mb-1 block">
-            Change Language 🌐
+            {t("changeLanguage")} 🌐
           </label>
           <select
             id="language"
             className="w-full p-2 rounded-md border border-gray-300 focus:outline-none"
             onChange={handleLanguageChange}
+            value={i18n.language}
           >
             <option value="en">English</option>
-            <option value="es">Spanish</option>
-            <option value="hi">Hindi</option>
-            <option value="pt">Portuguese</option>
-            <option value="zh">Chinese</option>
-            <option value="fr">French</option>
+            <option value="es">Español</option>
+            <option value="hi">हिंदी</option>
+            <option value="pt">Português</option>
+            <option value="zh">中文</option>
+            <option value="fr">Français</option>
           </select>
         </div>
+          <div id="recaptcha-container"></div>
       </nav>
 
       <PostModal isOpen={isTweetOpen} onClose={() => setIsTweetOpen(false)} />
@@ -166,7 +194,11 @@ const Sidebar = ({ setBlur }) => {
           className="flex items-center space-x-3 p-2 w-full rounded-full hover:bg-gray-200"
           onClick={() => setIsOpen(!isOpen)}
         >
-          <img className="w-12 h-12 rounded-full" src={user ? user.profilePic : ""} alt="Profile" />
+          <img
+            className="w-12 h-12 rounded-full"
+            src={user ? user.profilePic : ""}
+            alt="Profile"
+          />
           <div className="flex flex-col">
             <h1 className="text-lg font-bold">{user ? user.name : ""}</h1>
             <h4 className="text-xs text-gray-500">{user ? user.username : ""}</h4>
@@ -178,15 +210,29 @@ const Sidebar = ({ setBlur }) => {
           <div className="absolute bottom-16 left-0 w-56 bg-white text-black rounded-lg shadow-lg">
             <div className="p-3 space-y-2">
               <button className="block w-full text-left px-4 py-2 hover:bg-gray-300 rounded-md">
-                Add an existing account
+                {t("addAccount")}
               </button>
-              <button className="block w-full text-left px-4 py-2 hover:bg-gray-300 rounded-md" onClick={handleLogout}>
-                Log out @{user ? user.username : ""}
+              <button
+                className="block w-full text-left px-4 py-2 hover:bg-gray-300 rounded-md"
+                onClick={handleLogout}
+              >
+                {t("logout")} @{user ? user.username : ""}
               </button>
             </div>
           </div>
         )}
       </div>
+
+      {otpModalOpen && (
+        <OTPModal
+          email={user?.email}
+          onVerify={handleOTPVerify}
+          onClose={() => {
+            setOtpModalOpen(false);
+            setPendingLang(null);
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -1,12 +1,15 @@
 import axios from 'axios';
 import React, { useState, useEffect } from "react";
-import { useNavigate } from 'react-router-dom'; // you forgot to import navigate!
+import { useNavigate } from 'react-router-dom';
+
+import { useTranslation } from 'react-i18next';
 
 const Index = () => {
   const [user, setUser] = useState(null);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+    const { t ,i18n} = useTranslation(); 
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -43,9 +46,9 @@ const Index = () => {
   }, [navigate]);
 
   return (
-    <div className="flex-1 p-3">
+    <div className="flex-1 p-3" key={i18n.language}>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">What's Happening</h2>
+        <h2 className="text-xl font-bold">{t('whatsHappening')}</h2>
       </div>
 
       <input type="text" placeholder="Search" className="p-2 border rounded-lg w-full mb-4" />
@@ -54,9 +57,9 @@ const Index = () => {
         <div className="flex items-center space-x-2 mb-4">
           <img src={user ? user.profilePic : ''} alt="User" className="w-10 h-10 rounded-full" />
           <input type="text" placeholder="What is happening?!" className="flex-1 p-2 border rounded-lg" />
-          <button className="bg-blue-500 text-white px-4 py-2 rounded-lg">Post</button>
+          <button className="bg-blue-500 text-white px-4 py-2 rounded-lg">{t("post")}</button>
         </div>
-        <button onClick={() => navigate('/profile')} className="w-full text-blue-500 mt-2 hover: cursor-pointer hover:text-red-700">Show posts</button>
+        <button onClick={() => navigate('/profile')} className="w-full text-blue-500 mt-2 hover: cursor-pointer hover:text-red-700">{t("showPosts")}</button>
       </div>
 
       {/* Display Posts */}
