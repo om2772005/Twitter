@@ -95,7 +95,7 @@ app.post('/sign', async (req, res) => {
     });
 
 
-    return res.status(201).json({ redirectTo: "https://animated-gecko-1fe0ac.netlify.app//home" });
+    return res.status(201).json({ redirectTo: "https://spontaneous-creponne-c23f4a.netlify.app/home" });
 
   } catch (error) {
     console.error("Signup Error:", error);
