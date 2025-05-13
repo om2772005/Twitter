@@ -95,7 +95,7 @@ app.post('/sign', async (req, res) => {
     });
 
 
-    return res.status(201).json({ redirectTo: "https://spontaneous-creponne-c23f4a.netlify.app/home" });
+    return res.status(201).json({ redirectTo: "/home" });
 
   } catch (error) {
     console.error("Signup Error:", error);
@@ -190,7 +190,7 @@ app.post('/login', async (req, res) => {
     });
 
 
-    return res.json({ message: "Login successful", token, redirectTo: "http://localhost:5173/home" });
+    return res.json({ message: "Login successful", token, redirectTo: "/home" });
 
   } catch (error) {
     console.error("Login Error:", error);
