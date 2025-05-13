@@ -95,7 +95,7 @@ app.post('/sign', async (req, res) => {
     });
 
 
-    return res.status(201).json({ redirectTo: "http://localhost:5173/home" });
+    return res.status(201).json({ redirectTo: "https://animated-gecko-1fe0ac.netlify.app//home" });
 
   } catch (error) {
     console.error("Signup Error:", error);
