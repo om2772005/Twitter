@@ -89,7 +89,7 @@ app.post('/sign', async (req, res) => {
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: false,
+      secure: true,
       sameSite: "Lax",
       path: '/'
     });
@@ -116,7 +116,7 @@ app.post('/check-user', async (req, res) => {
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: false,
+      secure: true,
       sameSite: "Lax",
       path: '/'
     });
@@ -184,7 +184,7 @@ app.post('/login', async (req, res) => {
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: false,
+      secure: true,
       sameSite: "Lax",
       path: '/'
     });
