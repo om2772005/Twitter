@@ -543,23 +543,29 @@ app.post('/post', requireAuth, upload.fields([{ name: 'image' }, { name: 'audio'
       createdAt: { $gte: now.startOf('day').toDate() }
     });
 
-    if (currentUser.following.length < 0) {
-      const hour = now.hour();
-      const minute = now.minute();
-      if (!(hour === 10 && minute >= 0 && minute <= 30)) {
-        return res.status(403).json({ error: "You can only post between 10:00 AM - 10:30 AM IST" });
-      }
-    } else if (currentUser.following.length <= 2 && postCountToday >= 2) {
-      return res.status(403).json({ error: "You can only post 2 times a day" });
-    }    if (currentUser.following.length < 0) {
-      const hour = now.hour();
-      const minute = now.minute();
-      if (!(hour === 10 && minute >= 0 && minute <= 30)) {
-        return res.status(403).json({ error: "You can only post between 10:00 AM - 10:30 AM IST" });
-      }
-    } else if (currentUser.following.length <= 2 && postCountToday >= 2) {
-      return res.status(403).json({ error: "You can only post 2 times a day" });
-    }
+    const followingCount = currentUser.following.length;
+
+// Case 1: Follows 0 people
+if (followingCount === 0) {
+  if (!(hour === 10 && minute >= 0 && minute <= 30)) {
+    return res.status(403).json({
+      error: "You can only post between 10:00 AM - 10:30 AM IST if you don't follow anyone",
+    });
+  }
+  if (postCountToday >= 1) {
+    return res.status(403).json({
+      error: "You can only post once a day if you don't follow anyone",
+    });
+  }
+}
+
+else if (followingCount <= 2) {
+  if (postCountToday >= 2) {
+    return res.status(403).json({
+      error: "You can only post 2 times a day if you follow 1 or 2 users",
+    });
+  }
+}
 
     const newPost = new Post({
       userid: req.user.id,
